@@ -1,4 +1,4 @@
-DOCTYPE html>
+YPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -128,51 +128,4 @@ admissionForm.addEventListener('submit',async function(e){
 const questions=[
  ['What is the opposite of “Happy”?',['Sad','Big','Fast','Good'],0],
  ['Choose the correct spelling.',['Beautifull','Beautiful','Beutiful','Beautyful'],1],
- ['Find the synonym of “Quick”.',['Slow','Rapid','Late','Weak'],1],
- ['Choose the correct sentence.',['She go to school.','She goes to school.','She going school.','She gone school.'],1],
- ['What is the plural of “Child”?',['Childs','Childes','Children','Childrens'],2],
- ['Choose the article: ___ apple.',['A','An','Thee','No article'],1],
- ['Past tense of “Write”.',['Writed','Written','Wrote','Writing'],2],
- ['Opposite of “Ancient”.',['Old','Modern','Historic','Past'],1],
- ['Choose the noun.',['Beautiful','Run','Happiness','Quickly'],2],
- ['Correct pronoun: “Riya is kind. ___ helps everyone.”',['He','They','She','It'],2],
- ['Meaning of “Honest”.',['Truthful','Angry','Lazy','Careless'],0],
- ['Choose the correct preposition: “The book is ___ the table.”',['in','on','at','by'],1],
- ['Comparative of “Good”.',['Gooder','Best','Better','More good'],2],
- ['Choose the verb.',['School','Jump','Blue','Soft'],1],
- ['Opposite of “Victory”.',['Success','Defeat','Prize','Win'],1],
- ['Choose the correct punctuation.',['Where are you.','Where are you?','Where are you!','Where are you,'],1],
- ['Fill in: “They ___ playing.”',['is','am','are','be'],2],
- ['Synonym of “Begin”.',['Start','Finish','Close','Stop'],0],
- ['Choose the adjective.',['Slowly','Table','Bright','Speak'],2],
- ['Correct spelling.',['Environment','Enviroment','Envirnment','Environmant'],0]
-];
-let answers=new Array(questions.length).fill(-1), lastScore=0;
-function renderQuiz(){
- const q=document.getElementById('quiz');q.innerHTML='';
- questions.forEach((item,i)=>{
-  const div=document.createElement('div');div.className='question';
-  const h=document.createElement('h3');h.textContent=`Q${i+1}. ${item[0]}`;div.appendChild(h);
-  item[1].forEach((opt,j)=>{
-   const b=document.createElement('button');b.type='button';b.className='option'+(answers[i]===j?' selected':'');b.textContent=String.fromCharCode(65+j)+') '+opt;
-   b.onclick=()=>{answers[i]=j;renderQuiz();};div.appendChild(b);
-  });q.appendChild(div);
- });
-}
-function finishTest(){
- lastScore=questions.reduce((n,q,i)=>n+(answers[i]===q[2]?1:0),0);
- document.getElementById('scoreText').textContent=lastScore+' / 20';
- document.getElementById('passText').textContent=lastScore>=12?'Pass! Great job!':'Keep practising and try again.';
- const r=document.getElementById('reviewList');r.innerHTML='';
- questions.forEach((q,i)=>{
-  const d=document.createElement('div');d.className='question';
-  const chosen=answers[i]<0?'Not answered':q[1][answers[i]];
-  d.textContent=`Q${i+1}. ${q[0]} Your answer: ${chosen}. Correct answer: ${q[1][q[2]]}. ${answers[i]===q[2]?'Correct':'Incorrect'}`;
-  r.appendChild(d);
- });
- showScreen('result');
-}
-renderQuiz();
-</script>
-</body>
-</html>
+ [
