@@ -1,7 +1,9 @@
-
 import { auth, db, authReady } from "./firebase.js";
+
 import {
-  collection, addDoc, serverTimestamp
+  collection,
+  addDoc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 const $ = (id) => document.getElementById(id);
@@ -46,6 +48,7 @@ let testFinished = false;
 
 function renderQuestion() {
   const q = questions[current];
+
   $("questionNumber").textContent = current + 1;
   $("questionText").textContent = q[0];
   $("testMarks").textContent = score;
@@ -65,6 +68,7 @@ function renderQuestion() {
 
     button.addEventListener("click", () => {
       if (testFinished) return;
+
       answers[current] = index;
       renderQuestion();
     });
@@ -79,6 +83,7 @@ function renderQuestion() {
 function updateTimer() {
   const min = Math.floor(seconds / 60);
   const sec = seconds % 60;
+
   $("timer").textContent =
     `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 
@@ -108,22 +113,31 @@ function startTest() {
 
 function finishTest(timeExpired = false) {
   if (testFinished) return;
+
   testFinished = true;
   clearInterval(timerInterval);
 
-  if (timeExpired && answers.filter(a => a !== undefined).length < 20) {
+  if (
+    timeExpired &&
+    answers.filter(a => a !== undefined).length < 20
+  ) {
     showScreen("statusScreen");
+
     $("applicationStatus").textContent =
       "Sorry, your time is over. Please try again after 24 hours.";
+
     $("statusRetryBtn").hidden = true;
     return;
   }
 
-  score = questions.reduce((total, q, i) =>
-    total + (answers[i] === q[2] ? 1 : 0), 0);
+  score = questions.reduce(
+    (total, q, i) => total + (answers[i] === q[2] ? 1 : 0),
+    0
+  );
 
   $("finalMarks").textContent = score;
   $("admissionMarks").value = `${score}/20`;
+
   showScreen("resultScreen");
 }
 
@@ -148,12 +162,21 @@ function reviewAnswers() {
   showScreen("reviewScreen");
 }
 
+// LOGO CLICK: OPEN ADMIN LOGIN ONLY FROM WELCOME SCREEN
+$("academyLogo")?.addEventListener("click", () => {
+  if ($("welcomeScreen")?.classList.contains("active")) {
+    showScreen("adminLoginScreen");
+  }
+});
+
+// START BUTTON
 $("startBtn").addEventListener("click", () => {
   showScreen("testIntroScreen");
 });
 
 $("beginTestBtn").addEventListener("click", startTest);
 
+// NEXT QUESTION
 $("nextQuestionBtn").addEventListener("click", () => {
   if (answers[current] === undefined) {
     alert("Please select an answer first.");
@@ -168,6 +191,7 @@ $("nextQuestionBtn").addEventListener("click", () => {
   }
 });
 
+// REVIEW ANSWERS
 $("reviewBtn").addEventListener("click", reviewAnswers);
 
 $("continueAdmissionBtn").addEventListener("click", () => {
@@ -178,13 +202,18 @@ $("reviewContinueBtn").addEventListener("click", () => {
   showScreen("admissionScreen");
 });
 
+// ADMISSION FORM
 $("admissionForm").addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const form = event.currentTarget;
+
   if (!testFinished || !form.reportValidity()) return;
 
-  const data = Object.fromEntries(new FormData(form).entries());
+  const data = Object.fromEntries(
+    new FormData(form).entries()
+  );
+
   data.marks = score;
   data.status = "pending";
   data.createdAt = serverTimestamp();
@@ -193,48 +222,45 @@ $("admissionForm").addEventListener("submit", async (event) => {
 
   try {
     await authReady;
+
     await addDoc(collection(db, "admissions"), data);
 
     $("admissionMessage").textContent =
       "Application submitted successfully.";
+
     $("applicationStatus").textContent =
       "Your application is under admin review.";
+
     showScreen("statusScreen");
+
   } catch (error) {
     console.error(error);
+
     $("admissionMessage").textContent =
       "Submission failed. Please check Firebase setup.";
   }
 });
 
+// HELP BUTTON
 $("helpBtn").addEventListener("click", () => {
   $("helpPanel").hidden = !$("helpPanel").hidden;
 });
 
+// BACK BUTTONS
 document.querySelectorAll("[data-back]").forEach(button => {
-  button.addEventListener("click", () => showScreen(button.dataset.back));
+  button.addEventListener("click", () => {
+    showScreen(button.dataset.back);
+  });
 });
 
-// Admin authentication is intentionally not enabled here.
-// It requires secure Firebase admin accounts and role permissions.
-// Admin login selection
-const adminAccounts = {
-  vinod: "Vinod@Stars2026",
-  rajeshree: "Rajeshree@Stars2026",
-  yash: "Yash@Stars2026"
-};
-
-const adminLoginBtn = document.getElementById("adminLoginBtn");
+// ADMIN LOGIN
+// Secure Firebase Admin Authentication still needs to be configured.
+const adminLoginBtn = $("adminLoginBtn");
 
 if (adminLoginBtn) {
   adminLoginBtn.addEventListener("click", () => {
-    const name = document.getElementById("adminName")?.value;
-    const password = document.getElementById("adminPassword")?.value;
-
-    if (adminAccounts[name] === password) {
-      showScreen("adminDashboard");
-    } else {
-      alert("Invalid Admin Name or Password");
-    }
+    $("adminLoginMessage").textContent =
+      "Secure Admin Authentication setup is pending.";
   });
 }
+
