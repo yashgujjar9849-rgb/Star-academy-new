@@ -217,4 +217,24 @@ document.querySelectorAll("[data-back]").forEach(button => {
 
 // Admin authentication is intentionally not enabled here.
 // It requires secure Firebase admin accounts and role permissions.
+// Admin login selection
+const adminAccounts = {
+  vinod: "Vinod@Stars2026",
+  rajeshree: "Rajeshree@Stars2026",
+  yash: "Yash@Stars2026"
+};
 
+const adminLoginBtn = document.getElementById("adminLoginBtn");
+
+if (adminLoginBtn) {
+  adminLoginBtn.addEventListener("click", () => {
+    const name = document.getElementById("adminName")?.value;
+    const password = document.getElementById("adminPassword")?.value;
+
+    if (adminAccounts[name] === password) {
+      showScreen("adminDashboard");
+    } else {
+      alert("Invalid Admin Name or Password");
+    }
+  });
+}
