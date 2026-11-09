@@ -1,1 +1,34 @@
 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #080d25, #20104a, #700b20);
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  width: 100%;
+  max-width: 520px;
+  min-height: 100vh;
+  margin: auto;
+  padding: 22px;
+}
+
+.screen {
+  display: none;
+  min-height: 90vh;
+  padding: 22px 8px;
+}
+
+.screen.active {
+  display: block;
+}
+
+# 【】
+
