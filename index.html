@@ -2,176 +2,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>STARS ACADEMY</title>
-
-<style>
-*{box-sizing:border-box}
-body{
- margin:0;
- font-family:Arial,sans-serif;
- background:linear-gradient(140deg,#080d25,#241044,#450d40);
- color:white;
- text-align:center;
-}
-header{padding:25px 10px}
-.logo{
- width:135px;height:135px;
- border-radius:50%;
- border:4px solid #ffd34f;
- object-fit:contain;
- background:white;
- cursor:pointer;
-}
-h1{color:#ffd34f}
-.card{
- background:#171b3c;
- border:1px solid #6654a5;
- border-radius:18px;
- padding:22px;
- margin:18px auto;
- width:92%;
- max-width:550px;
-}
-button{
- background:#ffd34f;
- color:#20123b;
- border:0;
- padding:13px 20px;
- border-radius:10px;
- font-weight:bold;
- cursor:pointer;
- margin:7px;
-}
-input,select{
- width:100%;
- padding:12px;
- margin:9px 0;
- border-radius:9px;
- border:1px solid #777;
-}
-.hidden{display:none}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080d25">
+  <title>STARS ACADEMY AMALNER</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
+  <main class="app">
 
-<header>
-<img id="academyLogo" class="logo"
-src="YOUR_ORIGINAL_LOGO_IMAGE_URL"
-onclick="openAdminLogin()">
+    <!-- WELCOME SCREEN -->
+    <section id="welcomeScreen" class="screen active">
+      <div class="welcome-content">
+        <img id="academyLogo" class="academy-logo"
+          src="" alt="STARS ACADEMY AMALNER Logo">
+        <h1>STARS ACADEMY</h1>
+        <p class="tagline">Your Dream, Your Mission</p>
+        <button id="startBtn" class="primary-btn">
+          START YOUR MISSION
+        </button>
+      </div>
+    </section>
 
-<h1>STARS ACADEMY</h1>
-<p>Your Dream is Our Mission</p>
-<p>English Subject Specialist</p>
-</header>
+    <!-- ADMIN LOGIN -->
+    <section id="adminLoginScreen" class="screen">
+      <button class="back-btn" data-back="welcomeScreen">← Back</button>
+      <h2>Admin Login</h2>
+      <label for="adminName">Select Admin</label>
+      <select id="adminName">
+        <option value="">Select Admin</option>
+        <option>Vinod Patil Sir</option>
+        <option>Rajeshree Madam</option>
+        <option>Yash Gujjar</option>
+      </select>
+      <input id="adminEmail" type="email" placeholder="Admin Email">
+      <input id="adminPassword" type="password" placeholder="Password">
+      <button id="adminLoginBtn" class="primary-btn">Login</button>
+      <p id="adminLoginMessage"></p>
+    </section>
 
-<section id="welcome" class="card">
-<h2>Welcome to STARS ACADEMY</h2>
-<p>Hello, student, my name is Vinod Patil Sir.</p>
-<p>Welcome to Stars Academy.</p>
-<p>Classes 5–10 | Semi-English Medium</p>
-<button onclick="showPage('admission')">
-START YOUR MISSION
-</button>
-</section>
+    <!-- STUDENT TEST INTRO -->
+    <section id="testIntroScreen" class="screen">
+      <h2>English General Test</h2>
+      <p>20 Questions • 20 Marks • 20 Minutes</p>
+      <p>Complete your English test to continue admission.</p>
+      <button id="beginTestBtn" class="primary-btn">Start Test</button>
+    </section>
 
-<section id="admission" class="card hidden">
-<h2>Admission Form</h2>
+    <!-- TEST SCREEN -->
+    <section id="testScreen" class="screen">
+      <div class="test-info">
+        <span>Question <b id="questionNumber">1</b>/20</span>
+        <span>Time: <b id="timer">20:00</b></span>
+        <span>Marks: <b id="testMarks">0</b></span>
+      </div>
+      <div class="progress-track">
+        <div id="testProgress"></div>
+      </div>
+      <h2 id="questionText">Question will appear here</h2>
+      <div id="answerOptions" class="answer-options"></div>
+      <button id="nextQuestionBtn" class="primary-btn">Next</button>
+    </section>
 
-<input id="studentName" placeholder="Student Name">
-<input id="parentName" placeholder="Parent Name">
+    <!-- TEST RESULT -->
+    <section id="resultScreen" class="screen">
+      <h2>Test Completed</h2>
+      <p>Your Score</p>
+      <h1><span id="finalMarks">0</span>/20</h1>
+      <button id="reviewBtn" class="secondary-btn">Review Answers</button>
+      <button id="continueAdmissionBtn" class="primary-btn">
+        Continue to Admission
+      </button>
+    </section>
 
-<select id="studentClass">
-<option value="">Select Class</option>
-<option>5</option><option>6</option>
-<option>7</option><option>8</option>
-<option>9</option><option>10</option>
-</select>
+    <!-- ANSWER REVIEW -->
+    <section id="reviewScreen" class="screen">
+      <h2>Answer Review</h2>
+      <div id="reviewList"></div>
+      <button id="reviewContinueBtn" class="primary-btn">
+        Continue
+      </button>
+    </section>
 
-<input value="Semi-English Medium" readonly>
+    <!-- ADMISSION FORM -->
+    <section id="admissionScreen" class="screen">
+      <h2>Student Admission Form</h2>
+      <p>Classes 5 to 10 • Semi-English Medium</p>
 
-<button onclick="startTest()">CONTINUE</button>
-</section>
+      <form id="admissionForm">
+        <input name="studentName" placeholder="Student Full Name" required>
+        <input name="fatherName" placeholder="Father's Name" required>
+        <input name="mobile" type="tel" placeholder="Mobile Number" required>
+        <input name="parentMobile" type="tel" placeholder="Parent Mobile Number" required>
+        <input name="email" type="email" placeholder="Email Address">
+        <input name="school" placeholder="School Name" required>
 
-<section id="test" class="card hidden">
-<h2>English Admission Test</h2>
-<p>20 Marks</p>
-<p>Official admission test connection will be added with the backend.</p>
-</section>
+        <label for="studentClass">Select Class</label>
+        <select id="studentClass" name="studentClass" required>
+          <option value="">Select Class</option>
+          <option>5th</option>
+          <option>6th</option>
+          <option>7th</option>
+          <option>8th</option>
+          <option>9th</option>
+          <option>10th</option>
+        </select>
 
-<section id="adminLogin" class="card hidden">
-<h2>ADMIN LOGIN</h2>
-<input id="adminPassword" type="password"
-placeholder="Enter Admin Password">
-<button onclick="loginAdmin()">LOGIN</button>
-</section>
+        <label for="medium">Medium</label>
+        <select id="medium" name="medium" required>
+          <option value="Semi-English">Semi-English</option>
+        </select>
 
-<section id="adminPanel" class="card hidden">
-<h2>STARS ACADEMY ADMIN PANEL</h2>
+        <textarea name="address" placeholder="Full Address" required></textarea>
 
-<h3>Change Academy Logo</h3>
-<input type="file" id="logoFile" accept="image/*"
-onchange="changeLogo(event)">
+        <label>English Test Marks</label>
+        <input id="admissionMarks" name="marks" readonly placeholder="Test marks">
 
-<h3>Academy Management</h3>
-<button onclick="showPage('welcome')">HOME</button>
+        <label class="check-row">
+          <input type="checkbox" name="parentConsent" required>
+          My parent/guardian knows about this admission.
+        </label>
 
-</section>
+        <button type="submit" class="primary-btn">
+          Submit Admission
+        </button>
+      </form>
+      <p id="admissionMessage"></p>
+    </section>
 
-<script>
-function showPage(id){
- document.querySelectorAll('body > section')
- .forEach(x=>x.classList.add('hidden'));
- document.getElementById(id).classList.remove('hidden');
-}
+    <!-- APPLICATION STATUS -->
+    <section id="statusScreen" class="screen">
+      <h2>Admission Status</h2>
+      <p id="applicationStatus">Your application is under review.</p>
+      <p id="reviewCountdown"></p>
+      <button id="statusRetryBtn" class="secondary-btn">
+        Retry
+      </button>
+    </section>
 
-function openAdminLogin(){
- showPage('adminLogin');
-}
+    <!-- APPROVED STUDENT -->
+    <section id="approvedScreen" class="screen">
+      <h1>Congratulations!</h1>
+      <p>Your admission request has been approved.</p>
+      <p>Parents are compulsory for the academy visit.</p>
+      <p id="appointmentDetails"></p>
+      <a id="directionsLink" target="_blank" rel="noopener">
+        Get Directions
+      </a>
+    </section>
 
-function loginAdmin(){
- const password=document.getElementById('adminPassword').value;
+    <!-- ADMIN DASHBOARD -->
+    <section id="adminDashboard" class="screen">
+      <h2>Admin Dashboard</h2>
 
- if(password==='StarsDemo27'){
- showPage('adminPanel');
- }else{
- alert('Incorrect Password');
- }
-}
+      <div class="admin-card">
+        <h3>Student Applications</h3>
+        <div id="studentApplications">
+          No applications loaded.
+        </div>
+      </div>
 
-function changeLogo(event){
- const file=event.target.files[0];
- if(!file)return;
+      <div class="admin-card">
+        <h3>Appointment Settings</h3>
+        <label>Visit Date</label>
+        <input id="visitDate" type="date">
+        <label>From Time</label>
+        <input id="visitFrom" type="time">
+        <label>To Time</label>
+        <input id="visitTo" type="time">
+        <button id="saveAppointmentBtn" class="primary-btn">
+          Save Appointment
+        </button>
+      </div>
 
- const reader=new FileReader();
- reader.onload=function(){
- document.getElementById('academyLogo').src=reader.result;
- localStorage.setItem('starsAcademyLogo',reader.result);
- alert('Logo Updated');
- };
- reader.readAsDataURL(file);
-}
+      <div class="admin-card">
+        <h3>Academy Logo</h3>
+        <input id="logoUpload" type="file" accept="image/*">
+        <button id="saveLogoBtn" class="secondary-btn">
+          Save Logo
+        </button>
+      </div>
 
-function startTest(){
- const name=document.getElementById('studentName').value;
- const parent=document.getElementById('parentName').value;
- const cls=document.getElementById('studentClass').value;
+      <div class="admin-card">
+        <h3>Demo Lecture and Classroom</h3>
+        <input id="demoPhotoUpload" type="file" accept="image/*" multiple>
+        <button id="saveDemoBtn" class="secondary-btn">
+          Save Photos
+        </button>
+      </div>
 
- if(!name||!parent||!cls){
- alert('Please fill all required details');
- return;
- }
- showPage('test');
-}
+      <div class="admin-card">
+        <h3>Fees and Plans</h3>
+        <input id="feeInput" type="number" placeholder="Enter fees">
+        <button id="saveFeeBtn" class="secondary-btn">
+          Save Fees
+        </button>
+      </div>
 
-const savedLogo=localStorage.getItem('starsAcademyLogo');
-if(savedLogo){
- document.getElementById('academyLogo').src=savedLogo;
-}
-</script>
+      <button id="adminLogoutBtn" class="secondary-btn">
+        Logout
+      </button>
+    </section>
 
+    <!-- HELP -->
+    <button id="helpBtn" class="help-button" aria-label="Help">
+      🎧
+    </button>
+
+    <div id="helpPanel" class="help-panel" hidden>
+      <h3>STARS ACADEMY HELP</h3>
+      <p>English Subject Specialist</p>
+      <a href="tel:9604451240">Call: 9604451240</a>
+      <p>Maratha Mangal Karyalaya ke paas,
+        Ganesh Colony, Amalner.</p>
+      <a href="https://www.google.com/maps/search/?api=1&query=Ganesh+Colony+Amalner"
+         target="_blank" rel="noopener">Open Google Maps</a>
+    </div>
+
+    <div id="toast" role="status"></div>
+
+  </main>
+
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
+
 
