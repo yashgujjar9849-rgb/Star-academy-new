@@ -55,6 +55,7 @@ let deadline = 0;
 let timerInterval = null;
 let currentApplicationId = null;
 let statusUnsubscribe = null;
+let settingsUnsubscribe = null;
 let currentAdmin = null;
 
 function showScreen(id) {
@@ -307,30 +308,23 @@ async function submitAdmission(event) {
 
     localStorage.setItem("starsApplicationId", result.id);
 
-    try {
-      const emailModule = await import("https://cdn.jsdelivr.net/npm/@emailjs/browser@4/+esm");
-
-      await emailModule.send(
-        EMAILJS_SERVICE,
-        EMAILJS_TEMPLATE,
-        {
-          to_email: ADMIN_EMAIL,
-          student_name: application.studentName,
-          father_name: application.fatherName,
-          student_class: application.studentClass,
-          marks: `${marks}/20`,
-          application_id: result.id,
-          message: `New STARS ACADEMY application from ${application.studentName}. Marks: ${marks}/20. Please open the Admin Panel to review the complete test paper.`
-        },
-        EMAILJS_PUBLIC_KEY
-      );
-    } catch (emailError) {
-      console.error("Email notification failed:", emailError);
-    }
-
     showScreen("statusScreen");
-    message("applicationStatusText", "Waiting for admin review.");
+    message("applicationStatusText", "Application submitted successfully. Waiting for admin review.");
+    renderStudentResources(window.__academySettings || {});
     watchApplication(result.id);
+
+    // Email is a secondary notification; do not delay the student confirmation.
+    import("https://cdn.jsdelivr.net/npm/@emailjs/browser@4/+esm")
+      .then(emailModule => emailModule.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        to_email: ADMIN_EMAIL,
+        student_name: application.studentName,
+        father_name: application.fatherName,
+        student_class: application.studentClass,
+        marks: `${marks}/20`,
+        application_id: result.id,
+        message: `New STARS ACADEMY application from ${application.studentName}. Marks: ${marks}/20. Please open the Admin Panel to review the complete test paper.`
+      }, EMAILJS_PUBLIC_KEY))
+      .catch(emailError => console.error("Email notification failed:", emailError));
 
   } catch (error) {
     console.error(error);
@@ -623,12 +617,11 @@ async function uploadAcademyImage(inputId, path, imageId) {
     await uploadBytes(fileRef, file);
     const url = await getDownloadURL(fileRef);
 
-    if (imageId && $(imageId)) {
-      $(imageId).src = url;
-    }
+    const freshUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+    if (imageId && $(imageId)) $(imageId).src = freshUrl;
 
     await setDoc(doc(db, "settings", "academy"), {
-      ...(imageId ? { logoUrl: url } : { classroomPhotoUrl: url })
+      ...(imageId ? { logoUrl: freshUrl } : { classroomPhotoUrl: freshUrl })
     }, { merge: true });
 
     message("adminSettingsMessage", "Image updated successfully.");
@@ -659,25 +652,32 @@ $("saveDemoButton").addEventListener("click", async () => {
   }
 });
 
-// LOAD ACADEMY LOGO
-async function loadAcademySettings() {
-  try {
-    const snapshot = await getDoc(doc(db, "settings", "academy"));
+// LIVE ACADEMY SETTINGS: changes from Admin Panel reach student screens automatically.
+function renderStudentResources(settings) {
+  const area = $("studentAcademyResources");
+  if (!area) return;
+  const demo = typeof settings.demoLectureUrl === "string" && settings.demoLectureUrl.startsWith("https://") ? settings.demoLectureUrl : "";
+  const photo = typeof settings.classroomPhotoUrl === "string" && settings.classroomPhotoUrl.startsWith("https://") ? settings.classroomPhotoUrl : "";
+  area.replaceChildren();
+  if (!demo && !photo) { area.hidden = true; return; }
+  area.hidden = false;
+  const heading = document.createElement("h3"); heading.textContent = "STARS ACADEMY"; area.appendChild(heading);
+  if (demo) { const link = document.createElement("a"); link.href = demo; link.target = "_blank"; link.rel = "noopener"; link.className = "secondary-button"; link.textContent = "WATCH DEMO LECTURE"; area.appendChild(link); }
+  if (photo) { const image = document.createElement("img"); image.src = photo; image.alt = "STARS ACADEMY classroom"; image.loading = "lazy"; image.className = "classroom-photo"; area.appendChild(image); }
+}
 
-    if (snapshot.exists()) {
-      const settings = snapshot.data();
+function applyAcademySettings(settings = {}) {
+  window.__academySettings = settings;
+  if (settings.logoUrl) $("academyLogo").src = settings.logoUrl;
+  if ($("demoLectureUrl") && settings.demoLectureUrl) $("demoLectureUrl").value = settings.demoLectureUrl;
+  renderStudentResources(settings);
+}
 
-      if (settings.logoUrl) {
-        $("academyLogo").src = settings.logoUrl;
-      }
-
-      if (settings.demoLectureUrl) {
-        $("demoLectureUrl").value = settings.demoLectureUrl;
-      }
-    }
-  } catch (error) {
-    console.error("Settings could not load:", error);
-  }
+function loadAcademySettings() {
+  if (settingsUnsubscribe) settingsUnsubscribe();
+  settingsUnsubscribe = onSnapshot(doc(db, "settings", "academy"), snapshot => {
+    applyAcademySettings(snapshot.exists() ? snapshot.data() : {});
+  }, error => console.error("Live academy settings failed:", error));
 }
 
 // RESUME PENDING APPLICATION STATUS AFTER REFRESH
