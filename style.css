@@ -392,3 +392,10 @@ hr {
     grid-template-columns: 1fr;
   }
 }
+
+
+.student-resources { margin-top: 22px; padding: 16px; border-radius: 14px; background: #0c102d; border: 1px solid #514580; }
+.student-resources[hidden] { display: none; }
+.student-resources h3 { color: #ffe27b; margin-bottom: 12px; }
+.student-resources a { width: 100%; margin: 8px 0; }
+.classroom-photo { display: block; width: 100%; height: auto; max-height: 260px; object-fit: cover; border-radius: 12px; margin-top: 12px; }
