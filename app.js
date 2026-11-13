@@ -349,20 +349,25 @@ function watchApplication(id) {
 
     if (data.status === "approved") {
       showScreen("approvedScreen");
+      const schedule = data.visitDate && data.visitFrom && data.visitTo
+        ? `Visit date: ${data.visitDate} | Time: ${data.visitFrom} to ${data.visitTo}`
+        : "Your academy visit date and time will be shared by the admin.";
+      message("visitSchedule", schedule);
       return;
     }
 
-    if (data.status === "rejected") {
+    if (data.status === "rejected" || Date.now() >= data.reviewDeadline) {
       showScreen("rejectedScreen");
-      message("retryCountdown", "You can try again with a fresh paper.");
-      $("retryButton").disabled = false;
-      return;
-    }
-
-    if (Date.now() >= data.reviewDeadline) {
-      showScreen("rejectedScreen");
-      message("retryCountdown", "Sorry, you are not selected. Please try again.");
-      $("retryButton").disabled = false;
+      const retryAt = Number(data.retryAvailableAt || (data.reviewedAt?.toMillis?.() || data.submittedAt || Date.now()) + DAY);
+      const remaining = Math.max(0, retryAt - Date.now());
+      $("retryButton").disabled = remaining > 0;
+      message("retryCountdown", remaining > 0
+        ? "You can try again after the 24-hour waiting period."
+        : "You can now try again with a fresh paper.");
+      if (remaining > 0) {
+        const mins = Math.ceil(remaining / 60000);
+        message("retryCountdown", `Please wait about ${Math.floor(mins / 60)}h ${mins % 60}m before retrying.`);
+      }
     } else {
       showScreen("statusScreen");
       message("applicationStatusText", "Waiting for admin review.");
@@ -528,14 +533,54 @@ async function viewApplication(id) {
     <h3>Marks: ${escapeHTML(data.marks)}/20</h3>
     <h3>Complete Test Paper</h3>
     ${paperHTML}
+    <h3>Visit Schedule (Admin Only)</h3>
+    <label for="visitDateInput">Visit Date</label>
+    <input id="visitDateInput" type="date">
+    <label for="visitFromInput">From Time</label>
+    <input id="visitFromInput" type="time">
+    <label for="visitToInput">To Time</label>
+    <input id="visitToInput" type="time">
+    <button class="secondary-button" id="saveVisitScheduleButton">SAVE VISIT SCHEDULE</button>
+    <p id="visitScheduleMessage" class="message" role="status"></p>
     <div class="admin-action">
       <button class="primary-button" id="approveApplicationButton">APPROVE</button>
       <button class="secondary-button" id="rejectApplicationButton">REJECT</button>
     </div>
   `;
 
+  $("visitDateInput").value = data.visitDate || "";
+  $("visitFromInput").value = data.visitFrom || "";
+  $("visitToInput").value = data.visitTo || "";
+  $("saveVisitScheduleButton").addEventListener("click", () => saveVisitSchedule(id));
   $("approveApplicationButton").addEventListener("click", () => updateApplicationStatus(id, "approved"));
   $("rejectApplicationButton").addEventListener("click", () => updateApplicationStatus(id, "rejected"));
+}
+
+async function saveVisitSchedule(id) {
+  const visitDate = $("visitDateInput").value;
+  const visitFrom = $("visitFromInput").value;
+  const visitTo = $("visitToInput").value;
+
+  if (!visitDate || !visitFrom || !visitTo) {
+    message("visitScheduleMessage", "Please enter the date, from time and to time.");
+    return;
+  }
+  if (visitTo <= visitFrom) {
+    message("visitScheduleMessage", "To time must be later than from time.");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "applications", id), {
+      visitDate, visitFrom, visitTo,
+      scheduleUpdatedBy: currentAdmin?.name || "Admin",
+      scheduleUpdatedAt: serverTimestamp()
+    });
+    message("visitScheduleMessage", "Visit schedule saved.");
+  } catch (error) {
+    console.error(error);
+    message("visitScheduleMessage", `Could not save schedule: ${error.message}`);
+  }
 }
 
 async function updateApplicationStatus(id, status) {
@@ -543,7 +588,8 @@ async function updateApplicationStatus(id, status) {
     await updateDoc(doc(db, "applications", id), {
       status,
       reviewedBy: currentAdmin?.name || "Admin",
-      reviewedAt: serverTimestamp()
+      reviewedAt: serverTimestamp(),
+      ...(status === "rejected" ? { retryAvailableAt: Date.now() + DAY } : {})
     });
 
     message("adminSettingsMessage", `Application ${status}.`);
