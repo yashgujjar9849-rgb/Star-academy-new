@@ -605,30 +605,75 @@ $("uploadPhotoButton").addEventListener("click", async () => {
 });
 
 async function uploadAcademyImage(inputId, path, imageId) {
-  const file = $(inputId).files[0];
+  const input = $(inputId);
+  const file = input?.files?.[0];
+  const button = imageId ? $("uploadLogoButton") : $("uploadPhotoButton");
 
   if (!file) {
-    message("adminSettingsMessage", "Please select an image first.");
+    message("adminSettingsMessage", "पहले Choose File से फोटो चुनें।");
+    return;
+  }
+
+  if (!file.type || !file.type.startsWith("image/")) {
+    message("adminSettingsMessage", "कृपया JPG, PNG या WEBP इमेज चुनें।");
+    input.value = "";
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    message("adminSettingsMessage", "फोटो 5 MB से छोटी रखें।");
     return;
   }
 
   try {
-    const fileRef = ref(storage, path);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
+    await authReady;
+    if (!auth.currentUser || !currentAdmin) {
+      throw new Error("ADMIN_LOGIN_REQUIRED");
+    }
 
+    if (button) button.disabled = true;
+    message("adminSettingsMessage", "फोटो अपलोड हो रही है... कृपया प्रतीक्षा करें।");
+
+    const fileRef = ref(storage, path);
+    await uploadBytes(fileRef, file, {
+      contentType: file.type,
+      cacheControl: "public,max-age=3600"
+    });
+    const url = await getDownloadURL(fileRef);
     const freshUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
-    if (imageId && $(imageId)) $(imageId).src = freshUrl;
 
     await setDoc(doc(db, "settings", "academy"), {
       ...(imageId ? { logoUrl: freshUrl } : { classroomPhotoUrl: freshUrl })
     }, { merge: true });
 
-    message("adminSettingsMessage", "Image updated successfully.");
+    if (imageId && $(imageId)) {
+      $(imageId).src = freshUrl;
+      $(imageId).onerror = () => message("adminSettingsMessage", "अपलोड हुआ, लेकिन लोगो दिख नहीं रहा। कृपया दूसरी इमेज चुनें।");
+    }
+
+    input.value = "";
+    message("adminSettingsMessage", imageId
+      ? "लोगो सफलतापूर्वक अपलोड और सेव हो गया।"
+      : "क्लासरूम फोटो सफलतापूर्वक अपलोड और सेव हो गई।");
 
   } catch (error) {
-    console.error(error);
-    message("adminSettingsMessage", `Upload failed: ${error.message}`);
+    console.error("Academy image upload failed:", error);
+    const code = error?.code || "";
+    let explanation = error?.message || "Unknown error";
+
+    if (error?.message === "ADMIN_LOGIN_REQUIRED") {
+      explanation = "पहले Admin Panel में लॉगिन करें, फिर दोबारा अपलोड करें।";
+    } else if (code === "storage/unauthorized" || code === "permission-denied") {
+      explanation = "Firebase Rules ने अपलोड रोक दिया है। Firebase Storage और Firestore Rules में Admin को अनुमति देनी होगी।";
+    } else if (code === "storage/unknown" || code === "storage/retry-limit-exceeded") {
+      explanation = "नेटवर्क या Firebase Storage की समस्या है। इंटरनेट जाँचकर फिर कोशिश करें।";
+    } else if (code === "storage/bucket-not-found" || code === "storage/project-not-found") {
+      explanation = "Firebase Storage Bucket की सेटिंग गलत या अधूरी है।";
+    }
+
+    message("adminSettingsMessage", `Upload failed: ${explanation}`);
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
