@@ -35,7 +35,7 @@ const ADMINS = {
     email: "starsacademyamalner+vinod@gmail.com"
   },
   yash: {
-    name: "Yash Gujjar",
+    name: "Yash Vijay",
     email: "starsacademyamalner+yash@gmail.com"
   },
   rajeshree: {
