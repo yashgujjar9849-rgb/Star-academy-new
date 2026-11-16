@@ -182,14 +182,22 @@ function startTimer() {
   }, 250);
 }
 
+function getAnsweredCount() {
+  return questions.filter(item =>
+    item && Number.isInteger(answers[item.id]) &&
+    answers[item.id] >= 0 && answers[item.id] < item.o.length
+  ).length;
+}
+
 function renderQuestion() {
   const item = questions[questionIndex];
   if (!item) return;
 
+  const answeredCount = getAnsweredCount();
   $("questionCounter").textContent = `Question ${questionIndex + 1} of 20`;
-  $("answeredCounter").textContent = `Answered: ${Object.keys(answers).length}/20`;
+  $("answeredCounter").textContent = `Answered: ${answeredCount}/20`;
   $("questionText").textContent = item.q;
-  $("progressBar").style.width = `${(Object.keys(answers).length / 20) * 100}%`;
+  $("progressBar").style.width = `${(answeredCount / 20) * 100}%`;
 
   $("optionsContainer").innerHTML = "";
 
@@ -235,8 +243,8 @@ function finishTest() {
     return;
   }
 
-  if (Object.keys(answers).length !== 20) {
-    alert("Please answer all 20 questions before submitting.");
+  if (getAnsweredCount() !== 20) {
+    alert(`Please answer all 20 questions before submitting. Answered: ${getAnsweredCount()}/20.`);
     return;
   }
 
@@ -822,8 +830,20 @@ async function resumeApplication() {
 
   if (savedDeadline && savedDeadline > Date.now()) {
     try {
-      questions = JSON.parse(localStorage.getItem("starsTestPaper") || "[]");
-      answers = JSON.parse(localStorage.getItem("starsTestAnswers") || "{}");
+      const savedPaper = JSON.parse(localStorage.getItem("starsTestPaper") || "[]");
+      const savedAnswers = JSON.parse(localStorage.getItem("starsTestAnswers") || "{}");
+      if (savedPaper.length === 20) {
+        questions = savedPaper.map((item, index) => ({ ...item, id: index + 1 }));
+        answers = {};
+        savedPaper.forEach((item, index) => {
+          const oldAnswer = savedAnswers[item.id];
+          if (Number.isInteger(oldAnswer) && oldAnswer >= 0 && oldAnswer < item.o.length) {
+            answers[index + 1] = oldAnswer;
+          }
+        });
+        localStorage.setItem("starsTestPaper", JSON.stringify(questions));
+        localStorage.setItem("starsTestAnswers", JSON.stringify(answers));
+      }
       deadline = savedDeadline;
 
       if (questions.length === 20) {
