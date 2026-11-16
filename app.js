@@ -3,6 +3,7 @@ import { auth, db, storage, authReady } from "./firebase.js";
 
 import {
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
@@ -302,6 +303,12 @@ async function submitAdmission(event) {
   try {
     await authReady;
 
+    // Students use anonymous Firebase Authentication so their own application
+    // can be read securely without exposing every student's private details.
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
+    }
+
     const marks = Number(localStorage.getItem("starsTestMarks"));
     if (!Number.isFinite(marks) || !Array.isArray(questions) || questions.length !== 20) {
       throw new Error("Your completed test could not be found. Please complete the English test again.");
@@ -315,6 +322,7 @@ async function submitAdmission(event) {
       fatherName: $("fatherName").value.trim(),
       fatherPhone: $("fatherPhone").value.trim(),
       studentPhone: $("studentPhone").value.trim(),
+      studentUid: auth.currentUser.uid,
       marks,
       totalMarks: 20,
       questions,
