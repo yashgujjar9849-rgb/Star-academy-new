@@ -35,7 +35,7 @@ const ADMINS = {
     email: "starsacademyamalner+vinod@gmail.com"
   },
   yash: {
-    name: "Yash Vijay",
+    name: "Yash Gujjar",
     email: "starsacademyamalner+yash@gmail.com"
   },
   rajeshree: {
@@ -47,6 +47,15 @@ const ADMINS = {
 const $ = id => document.getElementById(id);
 const DAY = 24 * 60 * 60 * 1000;
 const TEST_DURATION = 20 * 60 * 1000;
+const FIREBASE_WAIT_LIMIT = 20000;
+
+function withTimeout(promise, label, ms = FIREBASE_WAIT_LIMIT) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label}_TIMEOUT`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+}
 
 let questions = [];
 let answers = {};
@@ -326,22 +335,10 @@ async function submitAdmission(event) {
 
     countdown = setInterval(() => {
       elapsed += 1;
-      const remaining = Math.max(0, 45 - elapsed);
-      message("admissionMessage",
-        elapsed < 45
-          ? `Submitting... ${elapsed}s elapsed. Please wait (maximum wait indicator: 45s).`
-          : "The server is taking longer than expected. Your details are saved on this device; you can safely retry without creating a duplicate."
-      );
+      message("admissionMessage", `Submitting... ${elapsed}s elapsed. Maximum wait: 20 seconds.`);
     }, 1000);
 
-    let timeoutId;
-    const writePromise = setDoc(applicationRef, application, { merge: true });
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("SUBMISSION_TIMEOUT")), 45000);
-    });
-
-    await Promise.race([writePromise, timeoutPromise]);
-    clearTimeout(timeoutId);
+    await withTimeout(setDoc(applicationRef, application, { merge: true }), "SUBMISSION");
     clearInterval(countdown);
     countdown = null;
 
@@ -371,7 +368,7 @@ async function submitAdmission(event) {
     if (countdown) clearInterval(countdown);
     console.error("Admission submission error:", error);
     if (error.message === "SUBMISSION_TIMEOUT") {
-      message("admissionMessage", "Firebase did not confirm within 45 seconds. Your form is still here. Check internet and tap Submit again; it will reuse the same application ID.");
+      message("admissionMessage", "Firebase did not confirm within 20 seconds. Your form is still here. Check Firebase connection/permissions and retry; the same application ID will be reused.");
     } else {
       message("admissionMessage", `Submission failed: ${error.message}. Your details are still in the form; please retry.`);
     }
@@ -681,16 +678,22 @@ async function uploadAcademyImage(inputId, path, imageId) {
     message("adminSettingsMessage", "फोटो अपलोड हो रही है... कृपया प्रतीक्षा करें।");
 
     const fileRef = ref(storage, path);
-    await uploadBytes(fileRef, file, {
+    const uploadTask = uploadBytesResumable(fileRef, file, {
       contentType: file.type,
       cacheControl: "public,max-age=3600"
     });
-    const url = await getDownloadURL(fileRef);
+    try {
+      await withTimeout(uploadTask, "IMAGE_UPLOAD");
+    } catch (uploadError) {
+      if (uploadError.message === "IMAGE_UPLOAD_TIMEOUT") uploadTask.cancel();
+      throw uploadError;
+    }
+    const url = await withTimeout(getDownloadURL(fileRef), "IMAGE_URL");
     const freshUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
 
-    await setDoc(doc(db, "settings", "academy"), {
+    await withTimeout(setDoc(doc(db, "settings", "academy"), {
       ...(imageId ? { logoUrl: freshUrl } : { classroomPhotoUrl: freshUrl })
-    }, { merge: true });
+    }, { merge: true }), "IMAGE_SETTINGS_SAVE");
 
     if (imageId && $(imageId)) {
       $(imageId).src = freshUrl;
@@ -711,6 +714,10 @@ async function uploadAcademyImage(inputId, path, imageId) {
       explanation = "पहले Admin Panel में लॉगिन करें, फिर दोबारा अपलोड करें।";
     } else if (code === "storage/unauthorized" || code === "permission-denied") {
       explanation = "Firebase Rules ने अपलोड रोक दिया है। Firebase Storage और Firestore Rules में Admin को अनुमति देनी होगी।";
+    } else if (error?.message === "IMAGE_UPLOAD_TIMEOUT") {
+      explanation = "फोटो अपलोड 20 सेकंड में पूरी नहीं हुई। Firebase Storage bucket/rules या इंटरनेट कनेक्शन जाँचें; फिर दोबारा कोशिश करें।";
+    } else if (error?.message === "IMAGE_URL_TIMEOUT" || error?.message === "IMAGE_SETTINGS_SAVE_TIMEOUT") {
+      explanation = "फोटो अपलोड हुई हो सकती है, लेकिन Firebase से URL/सेटिंग सेव होने की पुष्टि 20 सेकंड में नहीं मिली। Firebase कनेक्शन और Firestore Rules जाँचें।";
     } else if (code === "storage/unknown" || code === "storage/retry-limit-exceeded") {
       explanation = "नेटवर्क या Firebase Storage की समस्या है। इंटरनेट जाँचकर फिर कोशिश करें।";
     } else if (code === "storage/bucket-not-found" || code === "storage/project-not-found") {
