@@ -275,15 +275,20 @@ async function submitAdmission(event) {
   event.preventDefault();
 
   const button = $("submitAdmissionButton");
+  if (button.disabled) return;
   button.disabled = true;
-  message("admissionMessage", "Submitting your application...");
+
+  let elapsed = 0;
+  let countdown = null;
+  message("admissionMessage", "Submitting securely... Please keep this page open.");
 
   try {
     await authReady;
 
     const marks = Number(localStorage.getItem("starsTestMarks"));
-    const paper = questions;
-    const reviewAnswers = answers;
+    if (!Number.isFinite(marks) || !Array.isArray(questions) || questions.length !== 20) {
+      throw new Error("Your completed test could not be found. Please complete the English test again.");
+    }
 
     const application = {
       studentName: $("studentName").value.trim(),
@@ -295,25 +300,53 @@ async function submitAdmission(event) {
       studentPhone: $("studentPhone").value.trim(),
       marks,
       totalMarks: 20,
-      questions: paper,
-      answers: reviewAnswers,
+      questions,
+      answers,
       status: "pending",
       createdAt: serverTimestamp(),
       submittedAt: Date.now(),
       reviewDeadline: Date.now() + DAY
     };
 
-    const result = await addDoc(collection(db, "applications"), application);
-    currentApplicationId = result.id;
+    // Keep one stable ID across retries: a slow response cannot create duplicate applications.
+    let applicationId = localStorage.getItem("starsPendingApplicationId");
+    if (!applicationId) {
+      applicationId = doc(collection(db, "applications")).id;
+      localStorage.setItem("starsPendingApplicationId", applicationId);
+    }
+    const applicationRef = doc(db, "applications", applicationId);
 
-    localStorage.setItem("starsApplicationId", result.id);
+    countdown = setInterval(() => {
+      elapsed += 1;
+      const remaining = Math.max(0, 45 - elapsed);
+      message("admissionMessage",
+        elapsed < 45
+          ? `Submitting... ${elapsed}s elapsed. Please wait (maximum wait indicator: 45s).`
+          : "The server is taking longer than expected. Your details are saved on this device; you can safely retry without creating a duplicate."
+      );
+    }, 1000);
+
+    let timeoutId;
+    const writePromise = setDoc(applicationRef, application, { merge: true });
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("SUBMISSION_TIMEOUT")), 45000);
+    });
+
+    await Promise.race([writePromise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    clearInterval(countdown);
+    countdown = null;
+
+    currentApplicationId = applicationId;
+    localStorage.setItem("starsApplicationId", applicationId);
+    localStorage.removeItem("starsPendingApplicationId");
 
     showScreen("statusScreen");
     message("applicationStatusText", "Application submitted successfully. Waiting for admin review.");
     renderStudentResources(window.__academySettings || {});
-    watchApplication(result.id);
+    watchApplication(applicationId);
 
-    // Email is a secondary notification; do not delay the student confirmation.
+    // Email is a secondary notification and never blocks the successful form submission.
     import("https://cdn.jsdelivr.net/npm/@emailjs/browser@4/+esm")
       .then(emailModule => emailModule.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
         to_email: ADMIN_EMAIL,
@@ -321,14 +354,19 @@ async function submitAdmission(event) {
         father_name: application.fatherName,
         student_class: application.studentClass,
         marks: `${marks}/20`,
-        application_id: result.id,
+        application_id: applicationId,
         message: `New STARS ACADEMY application from ${application.studentName}. Marks: ${marks}/20. Please open the Admin Panel to review the complete test paper.`
       }, EMAILJS_PUBLIC_KEY))
       .catch(emailError => console.error("Email notification failed:", emailError));
 
   } catch (error) {
-    console.error(error);
-    message("admissionMessage", `Submission failed: ${error.message}`);
+    if (countdown) clearInterval(countdown);
+    console.error("Admission submission error:", error);
+    if (error.message === "SUBMISSION_TIMEOUT") {
+      message("admissionMessage", "Firebase did not confirm within 45 seconds. Your form is still here. Check internet and tap Submit again; it will reuse the same application ID.");
+    } else {
+      message("admissionMessage", `Submission failed: ${error.message}. Your details are still in the form; please retry.`);
+    }
     button.disabled = false;
   }
 }
@@ -698,23 +736,68 @@ $("saveDemoButton").addEventListener("click", async () => {
 });
 
 // LIVE ACADEMY SETTINGS: changes from Admin Panel reach student screens automatically.
-function renderStudentResources(settings) {
-  const area = $("studentAcademyResources");
-  if (!area) return;
-  const demo = typeof settings.demoLectureUrl === "string" && settings.demoLectureUrl.startsWith("https://") ? settings.demoLectureUrl : "";
-  const photo = typeof settings.classroomPhotoUrl === "string" && settings.classroomPhotoUrl.startsWith("https://") ? settings.classroomPhotoUrl : "";
-  area.replaceChildren();
-  if (!demo && !photo) { area.hidden = true; return; }
-  area.hidden = false;
-  const heading = document.createElement("h3"); heading.textContent = "STARS ACADEMY"; area.appendChild(heading);
-  if (demo) { const link = document.createElement("a"); link.href = demo; link.target = "_blank"; link.rel = "noopener"; link.className = "secondary-button"; link.textContent = "WATCH DEMO LECTURE"; area.appendChild(link); }
-  if (photo) { const image = document.createElement("img"); image.src = photo; image.alt = "STARS ACADEMY classroom"; image.loading = "lazy"; image.className = "classroom-photo"; area.appendChild(image); }
+function getOrCreateStudentResources() {
+  const screens = ["statusScreen", "approvedScreen"];
+  screens.forEach(screenId => {
+    const screen = $(screenId);
+    if (!screen || screen.querySelector(".student-resources-live")) return;
+    const panel = screen.querySelector(".panel");
+    if (!panel) return;
+    const area = document.createElement("section");
+    area.className = "student-resources student-resources-live";
+    area.setAttribute("aria-live", "polite");
+    area.hidden = true;
+    panel.appendChild(area);
+  });
+  return screens.map(id => $(id)?.querySelector(".student-resources-live")).filter(Boolean);
+}
+
+function renderStudentResources(settings = {}) {
+  const areas = getOrCreateStudentResources();
+  const demo = typeof settings.demoLectureUrl === "string" && /^https:\/\//i.test(settings.demoLectureUrl) ? settings.demoLectureUrl : "";
+  const photo = typeof settings.classroomPhotoUrl === "string" && /^https:\/\//i.test(settings.classroomPhotoUrl) ? settings.classroomPhotoUrl : "";
+
+  areas.forEach(area => {
+    area.replaceChildren();
+    if (!demo && !photo) { area.hidden = true; return; }
+    area.hidden = false;
+
+    const heading = document.createElement("h3");
+    heading.textContent = "STARS ACADEMY";
+    area.appendChild(heading);
+
+    if (demo) {
+      const link = document.createElement("a");
+      link.href = demo;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.className = "secondary-button";
+      link.textContent = "WATCH DEMO LECTURE";
+      area.appendChild(link);
+    }
+    if (photo) {
+      const image = document.createElement("img");
+      image.src = photo;
+      image.alt = "STARS ACADEMY classroom";
+      image.loading = "lazy";
+      image.className = "classroom-photo";
+      image.onerror = () => { image.alt = "Classroom photo could not be loaded"; };
+      area.appendChild(image);
+    }
+  });
 }
 
 function applyAcademySettings(settings = {}) {
   window.__academySettings = settings;
-  if (settings.logoUrl) $("academyLogo").src = settings.logoUrl;
-  if ($("demoLectureUrl") && settings.demoLectureUrl) $("demoLectureUrl").value = settings.demoLectureUrl;
+
+  const logo = $("academyLogo");
+  if (logo && settings.logoUrl) {
+    logo.src = settings.logoUrl;
+    logo.hidden = false;
+    logo.onerror = () => console.error("The saved academy logo URL could not be loaded.");
+  }
+
+  if ($("demoLectureUrl")) $("demoLectureUrl").value = settings.demoLectureUrl || "";
   renderStudentResources(settings);
 }
 
