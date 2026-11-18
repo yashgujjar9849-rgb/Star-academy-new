@@ -770,7 +770,7 @@ async function uploadAcademyImage(inputId, path, imageId) {
       cacheControl: "public,max-age=3600"
     });
     try {
-      await withTimeout(uploadTask, "IMAGE_UPLOAD");
+      await withTimeout(uploadTask, "IMAGE_UPLOAD", 120000);
     } catch (uploadError) {
       if (uploadError.message === "IMAGE_UPLOAD_TIMEOUT") uploadTask.cancel();
       throw uploadError;
