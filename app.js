@@ -16,7 +16,8 @@ import {
   getDoc,
   setDoc,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  runTransaction
 } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 import {
@@ -133,43 +134,121 @@ const QUESTION_BANK = [
   {q:"Choose the correct preposition: She is interested ___ music.",o:["on","at","in","for"],a:2}
 ];
 
-function createPaper() {
-  const pool = [...QUESTION_BANK];
-  const paper = [];
+// 5,000 globally allocated, non-repeating 20-question papers.
+// Each allocation uses a Firestore transaction so two students cannot receive
+// the same paper number at the same time. The current 40-question bank supplies
+// the combinations; it is not 5,000 different source questions.
+function chooseNumber(n, k) {
+  if (k < 0 || k > n) return 0;
+  let result = 1;
+  for (let i = 1; i <= k; i++) {
+    result = result * (n - k + i) / i;
+  }
+  return Math.round(result);
+}
 
-  while (paper.length < 20 && pool.length) {
-    const index = Math.floor(Math.random() * pool.length);
-    paper.push(pool.splice(index, 1)[0]);
+function getPaperQuestionsByRank(rank) {
+  const totalPapers = 5000;
+  const questionCount = QUESTION_BANK.length;
+  const questionsPerPaper = 20;
+  let remainingRank = rank;
+  let nextCandidate = 0;
+  const selected = [];
+
+  for (let position = 0; position < questionsPerPaper; position++) {
+    const remainingSlots = questionsPerPaper - position - 1;
+    for (
+      let candidate = nextCandidate;
+      candidate <= questionCount - (questionsPerPaper - position);
+      candidate++
+    ) {
+      const combinationsAfterChoice = chooseNumber(
+        questionCount - candidate - 1,
+        remainingSlots
+      );
+      if (remainingRank < combinationsAfterChoice) {
+        selected.push(QUESTION_BANK[candidate]);
+        nextCandidate = candidate + 1;
+        break;
+      }
+      remainingRank -= combinationsAfterChoice;
+    }
   }
 
-  return paper.map((item, index) => ({
-    ...item,
-    id: index + 1
-  }));
+  // Permute the order deterministically while preserving the unique question set.
+  let seed = (rank + 1) * 48271 % 2147483647;
+  for (let i = selected.length - 1; i > 0; i--) {
+    seed = seed * 16807 % 2147483647;
+    const j = seed % (i + 1);
+    [selected[i], selected[j]] = [selected[j], selected[i]];
+  }
+
+  return selected.map((item, index) => ({ ...item, id: index + 1 }));
+}
+
+async function createPaper() {
+  await authReady;
+  if (!auth.currentUser) await signInAnonymously(auth);
+
+  const counterRef = doc(db, "paperCounters", "admission");
+  const paperNumber = await runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(counterRef);
+    const nextNumber = snapshot.exists()
+      ? Number(snapshot.data().nextNumber || 0)
+      : 0;
+
+    if (!Number.isSafeInteger(nextNumber) || nextNumber < 0 || nextNumber >= 5000) {
+      throw new Error("PAPER_BANK_EXHAUSTED");
+    }
+
+    transaction.set(counterRef, {
+      nextNumber: nextNumber + 1,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    return nextNumber;
+  });
+
+  // A coprime multiplier spreads sequential allocations across the 5,000
+  // available combination ranks without producing duplicate ranks.
+  const paperRank = (paperNumber * 7919 + 1877) % 5000;
+  return getPaperQuestionsByRank(paperRank);
 }
 
 function getLockUntil() {
   return Number(localStorage.getItem("starsRetryUntil") || 0);
 }
 
-function startTest() {
+async function startTest() {
   if (getLockUntil() > Date.now()) {
     showScreen("timeoutScreen");
     return;
   }
 
-  questions = createPaper();
-  answers = {};
-  questionIndex = 0;
-  deadline = Date.now() + TEST_DURATION;
+  const startButton = $("startButton");
+  if (startButton) startButton.disabled = true;
 
-  localStorage.setItem("starsTestDeadline", String(deadline));
-  localStorage.setItem("starsTestPaper", JSON.stringify(questions));
-  localStorage.setItem("starsTestAnswers", "{}");
+  try {
+    questions = await createPaper();
+    answers = {};
+    questionIndex = 0;
+    deadline = Date.now() + TEST_DURATION;
 
-  showScreen("testScreen");
-  renderQuestion();
-  startTimer();
+    localStorage.setItem("starsTestDeadline", String(deadline));
+    localStorage.setItem("starsTestPaper", JSON.stringify(questions));
+    localStorage.setItem("starsTestAnswers", "{}");
+
+    showScreen("testScreen");
+    renderQuestion();
+    startTimer();
+  } catch (error) {
+    console.error("Could not allocate a unique admission paper:", error);
+    alert(error.message === "PAPER_BANK_EXHAUSTED"
+      ? "इस 5,000-पेपर बैच के सभी पेपर इस्तेमाल हो चुके हैं। नया पेपर बैच जोड़ना होगा।"
+      : "अभी नया टेस्ट पेपर नहीं मिल पाया। इंटरनेट/Firebase कनेक्शन जाँचकर दोबारा कोशिश करें।");
+  } finally {
+    if (startButton) startButton.disabled = false;
+  }
 }
 
 function startTimer() {
