@@ -296,11 +296,25 @@ function renderQuestion() {
     questionIndex === 19 ? "SUBMIT TEST" : "NEXT";
 }
 
-function expireTest() {
+let timeoutRestarting = false;
+
+async function expireTest() {
+  if (timeoutRestarting) return;
+  timeoutRestarting = true;
   clearInterval(timerInterval);
   localStorage.removeItem("starsRetryUntil");
   localStorage.removeItem("starsTestDeadline");
-  showScreen("timeoutScreen");
+  localStorage.removeItem("starsTestPaper");
+  localStorage.removeItem("starsTestAnswers");
+  localStorage.removeItem("starsTestMarks");
+  localStorage.removeItem("starsApplicationId");
+  localStorage.removeItem("starsPendingApplicationId");
+  // Time ends: immediately generate and open a fresh test without showing a message screen.
+  try {
+    await startTest();
+  } finally {
+    timeoutRestarting = false;
+  }
 }
 
 function calculateMarks() {
