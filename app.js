@@ -187,17 +187,8 @@ function getPaperQuestionsByRank(rank) {
 }
 
 async function createPaper() {
-  // Paper allocation is local so START does not depend on Firestore counter permissions.
-  // Every browser/device has its own 5,000-paper sequence.
-  const counterKey = "starsLocalPaperCounter";
-  const paperNumber = Number(localStorage.getItem(counterKey) || 0);
-
-  if (!Number.isSafeInteger(paperNumber) || paperNumber < 0 || paperNumber >= 5000) {
-    throw new Error("PAPER_BANK_EXHAUSTED");
-  }
-
-  localStorage.setItem(counterKey, String(paperNumber + 1));
-  const paperRank = (paperNumber * 7919 + 1877) % 5000;
+  // Generate a paper locally; START must not require Firebase or persistent browser storage.
+  const paperRank = Math.floor(Math.random() * 5000);
   return getPaperQuestionsByRank(paperRank);
 }
 function getLockUntil() {
