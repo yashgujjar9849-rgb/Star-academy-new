@@ -48,6 +48,7 @@ const ADMINS = {
 
 const $ = id => document.getElementById(id);
 const DAY = 24 * 60 * 60 * 1000;
+const RETRY_WAIT = 2 * 60 * 1000; // Temporary testing: 2-minute retry wait
 const TEST_DURATION = 20 * 60 * 1000;
 const FIREBASE_WAIT_LIMIT = 20000;
 
@@ -192,7 +193,10 @@ async function createPaper() {
   return getPaperQuestionsByRank(paperRank);
 }
 function getLockUntil() {
-  return Number(localStorage.getItem("starsRetryUntil") || 0);
+  // Ignore older 24-hour browser locks during temporary testing.
+  return Number(localStorage.getItem("starsRetryUntil") || 0) > Date.now()
+    ? Math.min(Number(localStorage.getItem("starsRetryUntil") || 0), Date.now() + RETRY_WAIT)
+    : 0;
 }
 
 async function startTest() {
@@ -295,7 +299,7 @@ function renderQuestion() {
 
 function expireTest() {
   clearInterval(timerInterval);
-  localStorage.setItem("starsRetryUntil", String(Date.now() + DAY));
+  localStorage.setItem("starsRetryUntil", String(Date.now() + RETRY_WAIT));
   localStorage.removeItem("starsTestDeadline");
   showScreen("timeoutScreen");
 }
@@ -462,7 +466,7 @@ function watchApplication(id) {
 
     if (data.status === "rejected" || Date.now() >= data.reviewDeadline) {
       showScreen("rejectedScreen");
-      const retryAt = Number(data.retryAvailableAt || (data.reviewedAt?.toMillis?.() || data.submittedAt || Date.now()) + DAY);
+      const retryAt = (data.submittedAt || Date.now()) + RETRY_WAIT;
       const remaining = Math.max(0, retryAt - Date.now());
       $("retryButton").disabled = remaining > 0;
       message("retryCountdown", remaining > 0
@@ -693,7 +697,7 @@ async function updateApplicationStatus(id, status) {
       status,
       reviewedBy: currentAdmin?.name || "Admin",
       reviewedAt: serverTimestamp(),
-      ...(status === "rejected" ? { retryAvailableAt: Date.now() + DAY } : {})
+      ...(status === "rejected" ? { retryAvailableAt: Date.now() + RETRY_WAIT } : {})
     });
 
     message("adminSettingsMessage", `Application ${status}.`);
