@@ -193,10 +193,12 @@ async function createPaper() {
   return getPaperQuestionsByRank(paperRank);
 }
 function getLockUntil() {
-  // Ignore older 24-hour browser locks during temporary testing.
-  return Number(localStorage.getItem("starsRetryUntil") || 0) > Date.now()
-    ? Math.min(Number(localStorage.getItem("starsRetryUntil") || 0), Date.now() + RETRY_WAIT)
-    : 0;
+  // Clear a previously stored 24-hour lock once for this temporary test mode.
+  if (localStorage.getItem("starsRetryModeReset") !== "1") {
+    localStorage.removeItem("starsRetryUntil");
+    localStorage.setItem("starsRetryModeReset", "1");
+  }
+  return Number(localStorage.getItem("starsRetryUntil") || 0);
 }
 
 async function startTest() {
@@ -466,7 +468,7 @@ function watchApplication(id) {
 
     if (data.status === "rejected" || Date.now() >= data.reviewDeadline) {
       showScreen("rejectedScreen");
-      const retryAt = (data.submittedAt || Date.now()) + RETRY_WAIT;
+      const retryAt = (data.reviewedAt?.toMillis?.() || data.submittedAt || Date.now()) + RETRY_WAIT;
       const remaining = Math.max(0, retryAt - Date.now());
       $("retryButton").disabled = remaining > 0;
       message("retryCountdown", remaining > 0
