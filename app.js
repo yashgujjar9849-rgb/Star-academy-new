@@ -483,6 +483,16 @@ $("welcomeLogoButton").addEventListener("click", () => {
 
 $("startButton").addEventListener("click", startTest);
 
+$("timeoutRetryButton").addEventListener("click", () => {
+  localStorage.removeItem("starsTestDeadline");
+  localStorage.removeItem("starsTestPaper");
+  localStorage.removeItem("starsTestAnswers");
+  localStorage.removeItem("starsTestMarks");
+  localStorage.removeItem("starsApplicationId");
+  localStorage.removeItem("starsPendingApplicationId");
+  startTest();
+});
+
 $("adminLoginButton").addEventListener("click", async () => {
   const selected = $("adminSelect").value;
   const password = $("adminPassword").value;
