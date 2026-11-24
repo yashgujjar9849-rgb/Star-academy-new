@@ -210,9 +210,13 @@ async function startTest() {
     questionIndex = 0;
     deadline = Date.now() + TEST_DURATION;
 
-    localStorage.setItem("starsTestDeadline", String(deadline));
-    localStorage.setItem("starsTestPaper", JSON.stringify(questions));
-    localStorage.setItem("starsTestAnswers", "{}");
+    try {
+      localStorage.setItem("starsTestDeadline", String(deadline));
+      localStorage.setItem("starsTestPaper", JSON.stringify(questions));
+      localStorage.setItem("starsTestAnswers", "{}");
+    } catch (storageError) {
+      console.warn("Browser storage unavailable; test will continue for this session.", storageError);
+    }
 
     showScreen("testScreen");
     renderQuestion();
