@@ -48,7 +48,7 @@ const ADMINS = {
 
 const $ = id => document.getElementById(id);
 const DAY = 24 * 60 * 60 * 1000;
-const RETRY_WAIT = 2 * 60 * 1000; // Temporary testing: 2-minute retry wait
+const RETRY_WAIT = 0; // Temporary testing: no retry waiting period
 const TEST_DURATION = 20 * 60 * 1000;
 const FIREBASE_WAIT_LIMIT = 20000;
 
@@ -193,12 +193,9 @@ async function createPaper() {
   return getPaperQuestionsByRank(paperRank);
 }
 function getLockUntil() {
-  // Clear a previously stored 24-hour lock once for this temporary test mode.
-  if (localStorage.getItem("starsRetryModeReset") !== "1") {
-    localStorage.removeItem("starsRetryUntil");
-    localStorage.setItem("starsRetryModeReset", "1");
-  }
-  return Number(localStorage.getItem("starsRetryUntil") || 0);
+  // Temporary testing mode: retries are available immediately.
+  localStorage.removeItem("starsRetryUntil");
+  return 0;
 }
 
 async function startTest() {
@@ -301,7 +298,7 @@ function renderQuestion() {
 
 function expireTest() {
   clearInterval(timerInterval);
-  localStorage.setItem("starsRetryUntil", String(Date.now() + RETRY_WAIT));
+  localStorage.removeItem("starsRetryUntil");
   localStorage.removeItem("starsTestDeadline");
   showScreen("timeoutScreen");
 }
@@ -468,16 +465,8 @@ function watchApplication(id) {
 
     if (data.status === "rejected" || Date.now() >= data.reviewDeadline) {
       showScreen("rejectedScreen");
-      const retryAt = (data.reviewedAt?.toMillis?.() || data.submittedAt || Date.now()) + RETRY_WAIT;
-      const remaining = Math.max(0, retryAt - Date.now());
-      $("retryButton").disabled = remaining > 0;
-      message("retryCountdown", remaining > 0
-        ? "You can try again after the 24-hour waiting period."
-        : "You can now try again with a fresh paper.");
-      if (remaining > 0) {
-        const mins = Math.ceil(remaining / 60000);
-        message("retryCountdown", `Please wait about ${Math.floor(mins / 60)}h ${mins % 60}m before retrying.`);
-      }
+      $("retryButton").disabled = false;
+      message("retryCountdown", "You can try again now with a fresh paper.");
     } else {
       showScreen("statusScreen");
       message("applicationStatusText", "Waiting for admin review.");
