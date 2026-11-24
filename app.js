@@ -187,34 +187,19 @@ function getPaperQuestionsByRank(rank) {
 }
 
 async function createPaper() {
-  await authReady;
-  if (!auth.currentUser) await signInAnonymously(auth);
+  // Paper allocation is local so START does not depend on Firestore counter permissions.
+  // Every browser/device has its own 5,000-paper sequence.
+  const counterKey = "starsLocalPaperCounter";
+  const paperNumber = Number(localStorage.getItem(counterKey) || 0);
 
-  const counterRef = doc(db, "paperCounters", "admission");
-  const paperNumber = await runTransaction(db, async transaction => {
-    const snapshot = await transaction.get(counterRef);
-    const nextNumber = snapshot.exists()
-      ? Number(snapshot.data().nextNumber || 0)
-      : 0;
+  if (!Number.isSafeInteger(paperNumber) || paperNumber < 0 || paperNumber >= 5000) {
+    throw new Error("PAPER_BANK_EXHAUSTED");
+  }
 
-    if (!Number.isSafeInteger(nextNumber) || nextNumber < 0 || nextNumber >= 5000) {
-      throw new Error("PAPER_BANK_EXHAUSTED");
-    }
-
-    transaction.set(counterRef, {
-      nextNumber: nextNumber + 1,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    return nextNumber;
-  });
-
-  // A coprime multiplier spreads sequential allocations across the 5,000
-  // available combination ranks without producing duplicate ranks.
+  localStorage.setItem(counterKey, String(paperNumber + 1));
   const paperRank = (paperNumber * 7919 + 1877) % 5000;
   return getPaperQuestionsByRank(paperRank);
 }
-
 function getLockUntil() {
   return Number(localStorage.getItem("starsRetryUntil") || 0);
 }
